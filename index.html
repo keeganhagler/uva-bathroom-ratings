@@ -17,9 +17,14 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:4px;ba
 .header-eyebrow{font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;}
 h1{font-family:'Playfair Display',serif;font-size:clamp(2.2rem,6vw,4rem);font-weight:900;line-height:1.05;letter-spacing:-.02em;}
 .subtitle{margin-top:.75rem;color:rgba(250,247,240,.6);font-size:.95rem;font-family:'DM Mono',monospace;}
-.layout{display:grid;grid-template-columns:380px 1fr;min-height:calc(100vh - 160px);}
-.sidebar{background:var(--cream);border-right:1px solid var(--paper);overflow-y:auto;max-height:calc(100vh - 160px);position:sticky;top:0;display:flex;flex-direction:column;}
-.sidebar-header{padding:1.25rem 1.5rem;border-bottom:1px solid var(--paper);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);background:var(--cream);position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:.5rem;}
+.tabs{display:flex;background:var(--ink);border-bottom:2px solid rgba(255,255,255,0.08);}
+.tab-btn{flex:1;padding:.85rem 1rem;font-family:'DM Mono',monospace;font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;background:none;border:none;color:rgba(250,247,240,.45);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
+.tab-panel{display:none;}
+.tab-panel.active{display:flex;flex-direction:column;}
+.layout{display:contents;}
+.sidebar{background:var(--cream);overflow-y:auto;height:calc(100vh - 160px);display:flex;flex-direction:column;}
+.sidebar-header{padding:1.25rem 1.5rem;border-bottom:1px solid var(--paper);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);background:var(--cream);position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-shrink:0;}
 .review-btn{background:var(--ink);color:var(--gold);border:none;border-radius:3px;padding:.35rem .65rem;font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;text-decoration:none;transition:background .15s;display:inline-block;white-space:nowrap;}
 .review-btn:hover{background:var(--rust);color:var(--cream);}
 .edit-toggle{background:none;border:1px solid var(--paper);border-radius:3px;padding:.35rem .65rem;font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;color:rgba(26,18,8,.5);transition:all .15s;white-space:nowrap;}
@@ -78,7 +83,7 @@ h1{font-family:'Playfair Display',serif;font-size:clamp(2.2rem,6vw,4rem);font-we
 .refresh-btn:hover{background:var(--rust);color:var(--cream);}
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--sage);color:white;padding:.75rem 1.5rem;border-radius:12px;font-family:'DM Mono',monospace;font-size:.75rem;letter-spacing:.05em;z-index:3000;transition:transform .3s ease;max-width:340px;text-align:center;line-height:1.5;}
 .toast.show{transform:translateX(-50%) translateY(0);}
-@media(max-width:768px){.layout{grid-template-columns:1fr;}.sidebar{max-height:45vh;position:relative;}#map{height:55vh;}}
+@media(max-width:768px){.sidebar{height:calc(100vh - 148px);}#map{height:calc(100vh - 148px);}}
 </style>
 </head>
 <body>
@@ -87,21 +92,29 @@ h1{font-family:'Playfair Display',serif;font-size:clamp(2.2rem,6vw,4rem);font-we
   <h1>UVA Bathroom<br>Ratings</h1>
   <div class="subtitle">ratings and reviews</div>
 </header>
+<div class="tabs">
+  <button class="tab-btn active" id="tab-list-btn" onclick="switchTab('list')">&#9776; Rankings</button>
+  <button class="tab-btn" id="tab-map-btn" onclick="switchTab('map')">&#9679; Map</button>
+</div>
 <div class="layout">
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <span>Ranked by Score</span>
-      <button class="edit-toggle" id="edit-toggle" onclick="toggleEditMode()">&#9998; Edit Pins</button>
-      <a class="review-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdy6gOE95KSWW8z_0Z2LCPOQQhD1wfE8lR-uhJt98EopLJZqQ/viewform" target="_blank">+ Review</a>
-    </div>
-    <div id="ranking-list"><div class="loading-state">Loading...</div></div>
-  </aside>
-  <div class="map-wrap">
-    <div id="map"></div>
-    <div class="edit-banner" id="edit-banner">&#9998; Edit mode &mdash; drag any pin to reposition it</div>
-    <div class="pinit-notice" id="pinit-notice">
-      <span id="pinit-label">Click map to place pin</span>
-      <button onclick="cancelPinIt()">Cancel</button>
+  <div class="tab-panel active" id="tab-list">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span>Ranked by Score</span>
+        <button class="edit-toggle" id="edit-toggle" onclick="toggleEditMode()">&#9998; Edit Pins</button>
+        <a class="review-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdy6gOE95KSWW8z_0Z2LCPOQQhD1wfE8lR-uhJt98EopLJZqQ/viewform" target="_blank">+ Review</a>
+      </div>
+      <div id="ranking-list"><div class="loading-state">Loading...</div></div>
+    </aside>
+  </div>
+  <div class="tab-panel" id="tab-map">
+    <div class="map-wrap" style="position:relative;flex:1;">
+      <div id="map"></div>
+      <div class="edit-banner" id="edit-banner">&#9998; Edit mode &mdash; drag any pin to reposition it</div>
+      <div class="pinit-notice" id="pinit-notice">
+        <span id="pinit-label">Click map to place pin</span>
+        <button onclick="cancelPinIt()">Cancel</button>
+      </div>
     </div>
   </div>
 </div>
@@ -331,6 +344,14 @@ function startPinIt(key){
   document.getElementById('pinit-notice').classList.add('show');
 }
 function cancelPinIt(){pinitKey=null;document.getElementById('pinit-notice').classList.remove('show');}
+
+function switchTab(tab){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.getElementById('tab-'+tab+'-btn').classList.add('active');
+  if(tab==='map') setTimeout(()=>map.invalidateSize(),50);
+}
 
 async function loadPinsFromSheet(){
   const sheetPins={};
