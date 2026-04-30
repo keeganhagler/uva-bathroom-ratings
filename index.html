@@ -3,497 +3,226 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UVA Bathroom Rankings 🚽</title>
+<title>UVA Bathroom Rankings</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  :root {
-    --bg: #f5f0e8;
-    --ink: #1a1208;
-    --gold: #c8963e;
-    --gold-light: #e8bc6a;
-    --cream: #faf7f0;
-    --rust: #a63d2f;
-    --sage: #4a6741;
-    --paper: #ede8da;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    color: var(--ink);
-    font-family: 'DM Sans', sans-serif;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 1000;
-    opacity: 0.4;
-  }
-
-  header {
-    background: var(--ink);
-    color: var(--cream);
-    padding: 3rem 2rem 2.5rem;
-    text-align: center;
-    position: relative;
-  }
-
-  header::after {
-    content: '';
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--rust), var(--gold), var(--rust));
-  }
-
-  .header-eyebrow {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.7rem;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    color: var(--gold);
-    margin-bottom: 1rem;
-  }
-
-  h1 {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(2.2rem, 6vw, 4rem);
-    font-weight: 900;
-    line-height: 1.05;
-    letter-spacing: -0.02em;
-  }
-
-  .subtitle {
-    margin-top: 0.75rem;
-    color: rgba(250,247,240,0.6);
-    font-size: 0.95rem;
-    font-family: 'DM Mono', monospace;
-  }
-
-  .layout {
-    display: grid;
-    grid-template-columns: 380px 1fr;
-    min-height: calc(100vh - 160px);
-  }
-
-  .sidebar {
-    background: var(--cream);
-    border-right: 1px solid var(--paper);
-    overflow-y: auto;
-    max-height: calc(100vh - 160px);
-    position: sticky;
-    top: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .sidebar-header {
-    padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid var(--paper);
-    font-family: 'DM Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    color: var(--gold);
-    background: var(--cream);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .review-btn-header {
-    background: var(--ink);
-    color: var(--gold);
-    border: none;
-    border-radius: 3px;
-    padding: 0.35rem 0.65rem;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.6rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    cursor: pointer;
-    text-decoration: none;
-    transition: background 0.15s;
-    display: inline-block;
-    white-space: nowrap;
-  }
-  .review-btn-header:hover { background: var(--rust); color: var(--cream); }
-
-  .edit-toggle {
-    background: none;
-    border: 1px solid var(--paper);
-    border-radius: 3px;
-    padding: 0.35rem 0.65rem;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.6rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    cursor: pointer;
-    color: rgba(26,18,8,0.5);
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .edit-toggle.active {
-    background: var(--gold);
-    border-color: var(--gold);
-    color: var(--ink);
-  }
-
-  #ranking-list { flex: 1; overflow-y: auto; }
-
-  .bathroom-item {
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--paper);
-    cursor: pointer;
-    transition: background 0.15s ease;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .bathroom-item:hover { background: var(--paper); }
-  .bathroom-item.active { background: var(--ink); color: var(--cream); }
-  .bathroom-item.active .score-bar-fill { background: var(--gold); }
-  .bathroom-item.active .score-label { color: var(--gold); }
-  .bathroom-item.active .location-name { color: var(--cream); }
-  .bathroom-item.active .location-detail { color: rgba(250,247,240,0.55); }
-
-  .rank-badge {
-    font-family: 'Playfair Display', serif;
-    font-weight: 700;
-    font-size: 1.4rem;
-    color: var(--gold);
-    min-width: 2rem;
-    text-align: center;
-    flex-shrink: 0;
-  }
-
-  .bathroom-info { flex: 1; min-width: 0; }
-  .location-name { font-weight: 500; font-size: 0.9rem; line-height: 1.3; color: var(--ink); }
-  .location-detail { font-family: 'DM Mono', monospace; font-size: 0.7rem; color: rgba(26,18,8,0.45); margin-top: 0.2rem; }
-
-  .score-col { flex-shrink: 0; text-align: right; }
-  .score-label { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; color: var(--rust); line-height: 1; }
-  .score-bar { height: 3px; background: var(--paper); border-radius: 2px; width: 48px; margin-top: 4px; }
-  .score-bar-fill { height: 100%; background: var(--gold); border-radius: 2px; }
-
-  #map { height: calc(100vh - 160px); width: 100%; }
-
-  /* Edit mode banner on map */
-  .edit-banner {
-    display: none;
-    position: absolute;
-    top: 10px; left: 50%; transform: translateX(-50%);
-    background: var(--gold);
-    color: var(--ink);
-    padding: 0.5rem 1.25rem;
-    border-radius: 40px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    z-index: 900;
-    pointer-events: none;
-    white-space: nowrap;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  }
-  .edit-banner.show { display: block; }
-
-  .leaflet-popup-content-wrapper {
-    background: var(--ink); color: var(--cream);
-    border-radius: 4px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); border: none;
-  }
-  .leaflet-popup-tip { background: var(--ink); }
-  .leaflet-popup-content { margin: 0; }
-  .leaflet-popup-close-button { color: rgba(250,247,240,0.5) !important; font-size: 18px !important; top: 8px !important; right: 10px !important; }
-
-  .popup-inner { padding: 1rem 1.25rem; min-width: 220px; max-width: 270px; }
-  .popup-rank { font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.2em; color: var(--gold); text-transform: uppercase; margin-bottom: 0.3rem; }
-  .popup-name { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; line-height: 1.3; color: var(--cream); margin-bottom: 0.5rem; }
-  .popup-score { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 900; color: var(--gold-light); line-height: 1; }
-  .popup-score span { font-size: 0.9rem; color: rgba(250,247,240,0.5); font-family: 'DM Mono', monospace; font-weight: 400; }
-  .popup-review-count { font-family: 'DM Mono', monospace; font-size: 0.65rem; color: rgba(250,247,240,0.45); margin-top: 0.2rem; }
-
-  .popup-cats { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; }
-  .popup-cat { display: flex; justify-content: space-between; align-items: center; font-family: 'DM Mono', monospace; font-size: 0.68rem; color: rgba(250,247,240,0.65); }
-  .popup-cat-bar { width: 60px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-left: 8px; }
-  .popup-cat-fill { height: 100%; background: var(--gold); border-radius: 2px; }
-
-  .popup-reviews { margin-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.75rem; }
-  .popup-reviews-title { font-family: 'DM Mono', monospace; font-size: 0.62rem; letter-spacing: 0.2em; color: var(--gold); text-transform: uppercase; margin-bottom: 0.5rem; }
-  .review-bubble { background: rgba(255,255,255,0.07); border-radius: 4px; padding: 0.5rem 0.65rem; margin-bottom: 0.4rem; font-size: 0.78rem; color: rgba(250,247,240,0.8); line-height: 1.4; }
-  .review-bubble .r-cats { display: flex; gap: 0.5rem; flex-wrap: wrap; font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--gold-light); margin-bottom: 0.25rem; }
-
-  .popup-review-btn {
-    margin-top: 0.85rem; width: 100%; padding: 0.5rem;
-    background: var(--gold); color: var(--ink); border: none; border-radius: 3px;
-    font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.1em;
-    text-transform: uppercase; cursor: pointer; font-weight: 500;
-    text-decoration: none; display: block; text-align: center; transition: background 0.15s;
-  }
-  .popup-review-btn:hover { background: var(--gold-light); }
-
-  /* Pin-it mode: clicking map places a pin for unlocated bathrooms */
-  .pinit-notice {
-    display: none;
-    position: absolute;
-    bottom: 10px; left: 50%; transform: translateX(-50%);
-    background: var(--ink);
-    color: var(--cream);
-    padding: 0.5rem 1.25rem;
-    border-radius: 40px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    z-index: 900;
-    white-space: nowrap;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-  }
-  .pinit-notice.show { display: block; }
-  .pinit-notice button {
-    background: none; border: none; color: var(--gold);
-    cursor: pointer; font-family: inherit; font-size: inherit;
-    margin-left: 0.75rem; text-decoration: underline;
-  }
-
-  .empty-state {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 3rem 2rem; text-align: center; gap: 1rem;
-  }
-  .empty-state .emoji { font-size: 2.5rem; }
-  .empty-state .title { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; }
-  .empty-state .desc { font-size: 0.85rem; color: rgba(26,18,8,0.5); line-height: 1.5; }
-  .empty-state a {
-    background: var(--ink); color: var(--gold); border-radius: 4px;
-    padding: 0.6rem 1.2rem; font-family: 'DM Mono', monospace; font-size: 0.72rem;
-    letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; transition: background 0.15s;
-  }
-  .empty-state a:hover { background: var(--rust); color: var(--cream); }
-
-  .loading-state {
-    display: flex; align-items: center; justify-content: center;
-    padding: 3rem; font-family: 'DM Mono', monospace; font-size: 0.8rem;
-    color: rgba(26,18,8,0.4); letter-spacing: 0.1em;
-  }
-
-  .refresh-btn {
-    position: fixed; bottom: 1.5rem; right: 1.5rem;
-    background: var(--ink); color: var(--gold); border: none; border-radius: 50px;
-    padding: 0.6rem 1.1rem; font-family: 'DM Mono', monospace; font-size: 0.68rem;
-    letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; z-index: 500;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.2); transition: background 0.15s;
-  }
-  .refresh-btn:hover { background: var(--rust); color: var(--cream); }
-
-  .toast {
-    position: fixed; bottom: 2rem; left: 50%;
-    transform: translateX(-50%) translateY(80px);
-    background: var(--sage); color: white; padding: 0.75rem 1.5rem;
-    border-radius: 40px; font-family: 'DM Mono', monospace; font-size: 0.78rem;
-    letter-spacing: 0.05em; z-index: 3000; transition: transform 0.3s ease; white-space: nowrap;
-  }
-  .toast.show { transform: translateX(-50%) translateY(0); }
-
-  /* Draggable cursor in edit mode */
-  .leaflet-dragging .leaflet-marker-icon { cursor: grabbing !important; }
-
-  @media (max-width: 768px) {
-    .layout { grid-template-columns: 1fr; }
-    .sidebar { max-height: 45vh; position: relative; }
-    #map { height: 55vh; }
-  }
+:root{--bg:#f5f0e8;--ink:#1a1208;--gold:#c8963e;--gold-light:#e8bc6a;--cream:#faf7f0;--rust:#a63d2f;--sage:#4a6741;--paper:#ede8da;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:1000;opacity:0.4;}
+header{background:var(--ink);color:var(--cream);padding:3rem 2rem 2.5rem;text-align:center;position:relative;}
+header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--rust),var(--gold),var(--rust));}
+.header-eyebrow{font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;}
+h1{font-family:'Playfair Display',serif;font-size:clamp(2.2rem,6vw,4rem);font-weight:900;line-height:1.05;letter-spacing:-.02em;}
+.subtitle{margin-top:.75rem;color:rgba(250,247,240,.6);font-size:.95rem;font-family:'DM Mono',monospace;}
+.layout{display:grid;grid-template-columns:380px 1fr;min-height:calc(100vh - 160px);}
+.sidebar{background:var(--cream);border-right:1px solid var(--paper);overflow-y:auto;max-height:calc(100vh - 160px);position:sticky;top:0;display:flex;flex-direction:column;}
+.sidebar-header{padding:1.25rem 1.5rem;border-bottom:1px solid var(--paper);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);background:var(--cream);position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:.5rem;}
+.review-btn{background:var(--ink);color:var(--gold);border:none;border-radius:3px;padding:.35rem .65rem;font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;text-decoration:none;transition:background .15s;display:inline-block;white-space:nowrap;}
+.review-btn:hover{background:var(--rust);color:var(--cream);}
+.edit-toggle{background:none;border:1px solid var(--paper);border-radius:3px;padding:.35rem .65rem;font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;color:rgba(26,18,8,.5);transition:all .15s;white-space:nowrap;}
+.edit-toggle.active{background:var(--gold);border-color:var(--gold);color:var(--ink);}
+#ranking-list{flex:1;overflow-y:auto;}
+.bathroom-item{padding:1rem 1.5rem;border-bottom:1px solid var(--paper);cursor:pointer;transition:background .15s ease;display:flex;align-items:center;gap:1rem;}
+.bathroom-item:hover{background:var(--paper);}
+.bathroom-item.active{background:var(--ink);color:var(--cream);}
+.bathroom-item.active .score-bar-fill{background:var(--gold);}
+.bathroom-item.active .score-label{color:var(--gold);}
+.bathroom-item.active .location-name{color:var(--cream);}
+.bathroom-item.active .location-detail{color:rgba(250,247,240,.55);}
+.rank-badge{font-family:'Playfair Display',serif;font-weight:700;font-size:1.4rem;color:var(--gold);min-width:2rem;text-align:center;flex-shrink:0;}
+.bathroom-info{flex:1;min-width:0;}
+.location-name{font-weight:500;font-size:.9rem;line-height:1.3;color:var(--ink);}
+.location-detail{font-family:'DM Mono',monospace;font-size:.7rem;color:rgba(26,18,8,.45);margin-top:.2rem;}
+.score-col{flex-shrink:0;text-align:right;}
+.score-label{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:var(--rust);line-height:1;}
+.score-bar{height:3px;background:var(--paper);border-radius:2px;width:48px;margin-top:4px;}
+.score-bar-fill{height:100%;background:var(--gold);border-radius:2px;}
+#map{height:calc(100vh - 160px);width:100%;}
+.map-wrap{position:relative;flex:1;}
+.edit-banner{display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--ink);padding:.5rem 1.25rem;border-radius:40px;font-family:'DM Mono',monospace;font-size:.72rem;letter-spacing:.08em;z-index:900;pointer-events:none;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.15);}
+.edit-banner.show{display:block;}
+.pinit-notice{display:none;position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--cream);padding:.5rem 1.25rem;border-radius:40px;font-family:'DM Mono',monospace;font-size:.72rem;letter-spacing:.08em;z-index:900;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.2);}
+.pinit-notice.show{display:flex;align-items:center;gap:.75rem;}
+.pinit-notice button{background:none;border:none;color:var(--gold);cursor:pointer;font-family:inherit;font-size:inherit;text-decoration:underline;}
+.leaflet-popup-content-wrapper{background:var(--ink);color:var(--cream);border-radius:4px;box-shadow:0 8px 32px rgba(0,0,0,.3);border:none;}
+.leaflet-popup-tip{background:var(--ink);}
+.leaflet-popup-content{margin:0;}
+.leaflet-popup-close-button{color:rgba(250,247,240,.5)!important;font-size:18px!important;top:8px!important;right:10px!important;}
+.popup-inner{padding:1rem 1.25rem;min-width:220px;max-width:270px;}
+.popup-rank{font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.2em;color:var(--gold);text-transform:uppercase;margin-bottom:.3rem;}
+.popup-name{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;line-height:1.3;color:var(--cream);margin-bottom:.5rem;}
+.popup-score{font-family:'Playfair Display',serif;font-size:2rem;font-weight:900;color:var(--gold-light);line-height:1;}
+.popup-score span{font-size:.9rem;color:rgba(250,247,240,.5);font-family:'DM Mono',monospace;font-weight:400;}
+.popup-review-count{font-family:'DM Mono',monospace;font-size:.65rem;color:rgba(250,247,240,.45);margin-top:.2rem;}
+.popup-cats{margin-top:.75rem;display:flex;flex-direction:column;gap:.35rem;}
+.popup-cat{display:flex;justify-content:space-between;align-items:center;font-family:'DM Mono',monospace;font-size:.68rem;color:rgba(250,247,240,.65);}
+.popup-cat-bar{width:60px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-left:8px;}
+.popup-cat-fill{height:100%;background:var(--gold);border-radius:2px;}
+.popup-reviews{margin-top:.75rem;border-top:1px solid rgba(255,255,255,.1);padding-top:.75rem;}
+.popup-reviews-title{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.2em;color:var(--gold);text-transform:uppercase;margin-bottom:.5rem;}
+.review-bubble{background:rgba(255,255,255,.07);border-radius:4px;padding:.5rem .65rem;margin-bottom:.4rem;font-size:.78rem;color:rgba(250,247,240,.8);line-height:1.4;}
+.review-bubble .r-cats{display:flex;gap:.5rem;flex-wrap:wrap;font-family:'DM Mono',monospace;font-size:.62rem;color:var(--gold-light);margin-bottom:.25rem;}
+.popup-review-btn{margin-top:.85rem;width:100%;padding:.5rem;background:var(--gold);color:var(--ink);border:none;border-radius:3px;font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-weight:500;text-decoration:none;display:block;text-align:center;transition:background .15s;}
+.popup-review-btn:hover{background:var(--gold-light);}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem 2rem;text-align:center;gap:1rem;}
+.empty-state .emoji{font-size:2.5rem;}
+.empty-state .title{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;}
+.empty-state .desc{font-size:.85rem;color:rgba(26,18,8,.5);line-height:1.5;}
+.empty-state a{background:var(--ink);color:var(--gold);border-radius:4px;padding:.6rem 1.2rem;font-family:'DM Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;transition:background .15s;}
+.empty-state a:hover{background:var(--rust);color:var(--cream);}
+.loading-state{display:flex;align-items:center;justify-content:center;padding:3rem;font-family:'DM Mono',monospace;font-size:.8rem;color:rgba(26,18,8,.4);letter-spacing:.1em;}
+.refresh-btn{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--ink);color:var(--gold);border:none;border-radius:50px;padding:.6rem 1.1rem;font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;z-index:500;box-shadow:0 4px 16px rgba(0,0,0,.2);transition:background .15s;}
+.refresh-btn:hover{background:var(--rust);color:var(--cream);}
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--sage);color:white;padding:.75rem 1.5rem;border-radius:12px;font-family:'DM Mono',monospace;font-size:.75rem;letter-spacing:.05em;z-index:3000;transition:transform .3s ease;max-width:340px;text-align:center;line-height:1.5;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+@media(max-width:768px){.layout{grid-template-columns:1fr;}.sidebar{max-height:45vh;position:relative;}#map{height:55vh;}}
 </style>
 </head>
 <body>
-
 <header>
-  <div class="header-eyebrow">University of Virginia · Unofficial Field Guide</div>
+  <div class="header-eyebrow">University of Virginia &middot; Unofficial Field Guide</div>
   <h1>The UVA Bathroom<br>Power Rankings</h1>
   <div class="subtitle">bathroom ratings and reviews</div>
 </header>
-
 <div class="layout">
   <aside class="sidebar">
     <div class="sidebar-header">
       <span>Ranked by Score</span>
-      <button class="edit-toggle" id="edit-toggle" onclick="toggleEditMode()">✏️ Edit Pins</button>
-      <a class="review-btn-header" href="https://docs.google.com/forms/d/e/1FAIpQLSdy6gOE95KSWW8z_0Z2LCPOQQhD1wfE8lR-uhJt98EopLJZqQ/viewform" target="_blank">+ Review</a>
+      <button class="edit-toggle" id="edit-toggle" onclick="toggleEditMode()">&#9998; Edit Pins</button>
+      <a class="review-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdy6gOE95KSWW8z_0Z2LCPOQQhD1wfE8lR-uhJt98EopLJZqQ/viewform" target="_blank">+ Review</a>
     </div>
     <div id="ranking-list"><div class="loading-state">Loading...</div></div>
   </aside>
-  <div style="position:relative; flex:1;">
+  <div class="map-wrap">
     <div id="map"></div>
-    <div class="edit-banner" id="edit-banner">✏️ Edit mode — drag any pin to reposition it</div>
+    <div class="edit-banner" id="edit-banner">&#9998; Edit mode &mdash; drag any pin to reposition it</div>
     <div class="pinit-notice" id="pinit-notice">
       <span id="pinit-label">Click map to place pin</span>
       <button onclick="cancelPinIt()">Cancel</button>
     </div>
   </div>
 </div>
-
-<button class="refresh-btn" onclick="loadData(true)">↻ Refresh</button>
+<button class="refresh-btn" onclick="loadData(true)">&#8635; Refresh</button>
 <div class="toast" id="toast"></div>
-
 <script>
 const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS9EMsacpm5N4113uRmBpQCFWJ-eKLVTmXKlPQLDZGEvWtqKHyLniVjN_meKbMieCGG7pDRJZvH7AsM/pub?output=csv';
+const PINS_CSV  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT-0QM7LBhYo6QzDFeH0UifZLg3kLPg6OOam-Mgf9fQphHpx675u9a5FRs1SVgjgIUcqrCRrqqEz1Dm/pub?gid=0&single=true&output=csv';
 const FORM_URL  = 'https://docs.google.com/forms/d/e/1FAIpQLSdy6gOE95KSWW8z_0Z2LCPOQQhD1wfE8lR-uhJt98EopLJZqQ/viewform';
 const PIN_STORAGE_KEY = 'uva_bathroom_pins_v1';
 
 const KNOWN_LOCATIONS = [
-  { keywords: ['shannon'],                              lat: 38.0364566, lng: -78.5053683 },
-  { keywords: ['garrett'],                              lat: 38.0342112, lng: -78.5055858 },
-  { keywords: ['1515'],                                 lat: 38.035209,  lng: -78.5004328 },
-  { keywords: ['clemons','clemens','clem'],             lat: 38.036359,  lng: -78.50609   },
-  { keywords: ['student health','wellness'],            lat: 38.0301536, lng: -78.5038743 },
-  { keywords: ['french house'],                         lat: 38.0329556, lng: -78.5052975 },
-  { keywords: ['gilmer'],                               lat: 38.0341628, lng: -78.5128076 },
-  { keywords: ['olsson'],                               lat: 38.032088,  lng: -78.510695  },
-  { keywords: ['cabell'],                               lat: 38.0326411, lng: -78.5052346 },
-  { keywords: ['alderman'],                             lat: 38.0358,    lng: -78.5061    },
-  { keywords: ['rice hall','rice'],                     lat: 38.0315,    lng: -78.5108    },
-  { keywords: ['thornton'],                             lat: 38.0318,    lng: -78.5115    },
-  { keywords: ['newcomb'],                              lat: 38.0352,    lng: -78.5024    },
-  { keywords: ['rotunda'],                              lat: 38.0355,    lng: -78.5034    },
-  { keywords: ['monroe'],                               lat: 38.0330,    lng: -78.5042    },
-  { keywords: ['clark'],                                lat: 38.0322,    lng: -78.5098    },
-  { keywords: ['nau'],                                  lat: 38.0336,    lng: -78.5040    },
-  { keywords: ['robertson'],                            lat: 38.0335,    lng: -78.5039    },
-  { keywords: ['kerchof'],                              lat: 38.0321,    lng: -78.5109    },
-  { keywords: ['physics'],                              lat: 38.0316,    lng: -78.5120    },
-  { keywords: ['chemistry','chem'],                     lat: 38.0312,    lng: -78.5118    },
-  { keywords: ['wilson'],                               lat: 38.0347,    lng: -78.5036    },
-  { keywords: ['ruffner'],                              lat: 38.0344,    lng: -78.5022    },
-  { keywords: ['bavaro'],                               lat: 38.0299,    lng: -78.5041    },
-  { keywords: ['university ave','university avenue'],   lat: 38.0352,    lng: -78.5000    },
-  { keywords: ['mccormick'],                            lat: 38.0310,    lng: -78.5098    },
-  { keywords: ['campbell'],                             lat: 38.0328,    lng: -78.5033    },
-  { keywords: ['minor'],                                lat: 38.0340,    lng: -78.5030    },
-  { keywords: ['cocke'],                                lat: 38.0331,    lng: -78.5068    },
-  { keywords: ['maury'],                                lat: 38.0345,    lng: -78.5046    },
+  {keywords:['shannon'],lat:38.0364566,lng:-78.5053683},
+  {keywords:['garrett'],lat:38.0342112,lng:-78.5055858},
+  {keywords:['1515'],lat:38.035209,lng:-78.5004328},
+  {keywords:['clemons','clemens','clem'],lat:38.036359,lng:-78.50609},
+  {keywords:['student health','wellness'],lat:38.0301536,lng:-78.5038743},
+  {keywords:['french house'],lat:38.0329556,lng:-78.5052975},
+  {keywords:['gilmer'],lat:38.0341628,lng:-78.5128076},
+  {keywords:['olsson'],lat:38.032088,lng:-78.510695},
+  {keywords:['cabell'],lat:38.0326411,lng:-78.5052346},
+  {keywords:['alderman'],lat:38.0358,lng:-78.5061},
+  {keywords:['rice hall','rice'],lat:38.0315,lng:-78.5108},
+  {keywords:['thornton'],lat:38.0318,lng:-78.5115},
+  {keywords:['newcomb'],lat:38.0352,lng:-78.5024},
+  {keywords:['rotunda'],lat:38.0355,lng:-78.5034},
+  {keywords:['monroe'],lat:38.0330,lng:-78.5042},
+  {keywords:['clark'],lat:38.0322,lng:-78.5098},
+  {keywords:['nau'],lat:38.0336,lng:-78.5040},
+  {keywords:['robertson'],lat:38.0335,lng:-78.5039},
+  {keywords:['kerchof'],lat:38.0321,lng:-78.5109},
+  {keywords:['physics'],lat:38.0316,lng:-78.5120},
+  {keywords:['chemistry','chem'],lat:38.0312,lng:-78.5118},
+  {keywords:['wilson'],lat:38.0347,lng:-78.5036},
+  {keywords:['ruffner'],lat:38.0344,lng:-78.5022},
+  {keywords:['bavaro'],lat:38.0299,lng:-78.5041},
+  {keywords:['university ave','university avenue'],lat:38.0352,lng:-78.5000},
+  {keywords:['mccormick'],lat:38.0310,lng:-78.5098},
+  {keywords:['campbell'],lat:38.0328,lng:-78.5033},
+  {keywords:['minor'],lat:38.0340,lng:-78.5030},
+  {keywords:['cocke'],lat:38.0331,lng:-78.5068},
+  {keywords:['maury'],lat:38.0345,lng:-78.5046},
 ];
 
-function guessLocation(name) {
-  const n = name.toLowerCase();
-  for (const loc of KNOWN_LOCATIONS) {
-    if (loc.keywords.some(k => n.includes(k))) return { lat: loc.lat, lng: loc.lng };
+function guessLocation(name){
+  const n=name.toLowerCase();
+  for(const loc of KNOWN_LOCATIONS){
+    if(loc.keywords.some(k=>n.includes(k))) return {lat:loc.lat,lng:loc.lng};
   }
   return null;
 }
 
-// Load/save custom pin positions from localStorage
-function loadSavedPins() {
-  try { return JSON.parse(localStorage.getItem(PIN_STORAGE_KEY) || '{}'); } catch { return {}; }
-}
-function savePin(key, lat, lng) {
-  const pins = loadSavedPins();
-  pins[key] = { lat, lng };
-  localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(pins));
-}
+function loadSavedPins(){try{return JSON.parse(localStorage.getItem(PIN_STORAGE_KEY)||'{}')}catch{return {}}}
+function savePin(key,lat,lng){const p=loadSavedPins();p[key]={lat,lng};localStorage.setItem(PIN_STORAGE_KEY,JSON.stringify(p));}
 
-function parseCSV(text) {
-  const lines = text.split('\n').filter(l => l.trim());
-  if (lines.length < 2) return [];
-  function splitLine(line) {
-    const vals = []; let cur = '', inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') { inQ = !inQ; continue; }
-      if (!inQ && (c === ',' || c === '\t')) { vals.push(cur.trim()); cur = ''; continue; }
-      cur += c;
+function parseCSV(text){
+  const lines=text.split('\n').filter(l=>l.trim());
+  if(lines.length<2) return [];
+  function splitLine(line){
+    const vals=[];let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){inQ=!inQ;continue;}
+      if(!inQ&&(c===','||c==='\t')){vals.push(cur.trim());cur='';continue;}
+      cur+=c;
     }
-    vals.push(cur.trim()); return vals;
+    vals.push(cur.trim());return vals;
   }
-  const headers = splitLine(lines[0]);
-  return lines.slice(1).map(line => {
-    const vals = splitLine(line), obj = {};
-    headers.forEach((h, i) => obj[h.trim()] = (vals[i] || '').trim());
+  const headers=splitLine(lines[0]);
+  return lines.slice(1).map(line=>{
+    const vals=splitLine(line),obj={};
+    headers.forEach((h,i)=>obj[h.trim()]=(vals[i]||'').trim());
     return obj;
-  }).filter(row => Object.values(row).some(v => v));
+  }).filter(row=>Object.values(row).some(v=>v));
 }
 
-function findCol(row, keywords) {
-  const key = Object.keys(row).find(k => keywords.some(kw => k.toLowerCase().includes(kw)));
-  return key ? row[key] : '';
+function findCol(row,keywords){
+  const key=Object.keys(row).find(k=>keywords.some(kw=>k.toLowerCase().includes(kw)));
+  return key?row[key]:'';
 }
 
-let bathroomMap = {};
-let markers = {};
-let editMode = false;
-let pinitKey = null; // key of bathroom waiting to be pinned by click
+let bathroomMap={},markers={},editMode=false,pinitKey=null;
 
-const map = L.map('map').setView([38.0335, -78.507], 15);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
-}).addTo(map);
+const map=L.map('map').setView([38.0335,-78.507],15);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:19}).addTo(map);
 
-// Handle map click for pin-it mode
-map.on('click', (e) => {
-  if (!pinitKey) return;
-  const key = pinitKey;
-  const { lat, lng } = e.latlng;
-  bathroomMap[key].lat = lat;
-  bathroomMap[key].lng = lng;
-  savePin(key, lat, lng);
+map.on('click',(e)=>{
+  if(!pinitKey) return;
+  const key=pinitKey,{lat,lng}=e.latlng;
+  bathroomMap[key].lat=lat;bathroomMap[key].lng=lng;
+  savePin(key,lat,lng);
   cancelPinIt();
-  rebuildMarkers();
-  renderSidebar();
-  showToast('📍 Pin placed!');
+  rebuildMarkers();renderSidebar();
+  showCoordsToast(bathroomMap[key].name,lat,lng);
 });
 
-function medalFor(i) {
-  return i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
-}
-function colorForScore(s) {
-  return s >= 4 ? '#c8963e' : s >= 3 ? '#4a6741' : '#a63d2f';
-}
-function avgScore(b) {
-  const r = b.reviews;
-  if (!r.length) return 0;
-  return r.reduce((a, x) => a + (x.loc + x.cln + x.prv) / 3, 0) / r.length;
-}
+function medalFor(i){return i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);}
+function colorForScore(s){return s>=4?'#c8963e':s>=3?'#4a6741':'#a63d2f';}
+function avgScore(b){const r=b.reviews;if(!r.length)return 0;return r.reduce((a,x)=>a+(x.loc+x.cln+x.prv)/3,0)/r.length;}
 
-function makeIcon(rank, score) {
-  const color = colorForScore(score);
-  const label = rank < 3 ? ['🥇','🥈','🥉'][rank] : (rank + 1);
+function makeIcon(rank,score){
+  const color=colorForScore(score);
+  const label=rank<3?['🥇','🥈','🥉'][rank]:(rank+1);
   return L.divIcon({
-    html: `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
-      <ellipse cx="18" cy="42" rx="8" ry="3" fill="rgba(0,0,0,0.15)"/>
-      <path d="M18 0 C8.6 0 1 7.6 1 17 C1 28 18 42 18 42 C18 42 35 28 35 17 C35 7.6 27.4 0 18 0Z" fill="${color}" stroke="white" stroke-width="1.5"/>
-      <text x="18" y="20" text-anchor="middle" dominant-baseline="middle" font-family="DM Mono,monospace" font-size="${rank<3?14:12}" fill="white" font-weight="500">${label}</text>
-    </svg>`,
-    className: '', iconSize: [36,44], iconAnchor: [18,44], popupAnchor: [0,-46]
+    html:`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44"><ellipse cx="18" cy="42" rx="8" ry="3" fill="rgba(0,0,0,0.15)"/><path d="M18 0 C8.6 0 1 7.6 1 17 C1 28 18 42 18 42 C18 42 35 28 35 17 C35 7.6 27.4 0 18 0Z" fill="${color}" stroke="white" stroke-width="1.5"/><text x="18" y="20" text-anchor="middle" dominant-baseline="middle" font-family="DM Mono,monospace" font-size="${rank<3?14:12}" fill="white" font-weight="500">${label}</text></svg>`,
+    className:'',iconSize:[36,44],iconAnchor:[18,44],popupAnchor:[0,-46]
   });
 }
 
-function buildPopupHTML(key, rank) {
-  const b = bathroomMap[key];
-  const r = b.reviews;
-  const score = avgScore(b);
-  const outOf10 = (score * 2).toFixed(1);
-  const avg = fn => r.length ? (r.reduce((a,x)=>a+fn(x),0)/r.length).toFixed(1) : '—';
-  const pct = fn => r.length ? r.reduce((a,x)=>a+fn(x),0)/r.length/5*100 : 0;
-  const recentReviews = r.slice(-3).reverse().map(rv => `
+function buildPopupHTML(key,rank){
+  const b=bathroomMap[key],r=b.reviews,score=avgScore(b);
+  const outOf10=(score*2).toFixed(1);
+  const avg=fn=>r.length?(r.reduce((a,x)=>a+fn(x),0)/r.length).toFixed(1):'--';
+  const pct=fn=>r.length?r.reduce((a,x)=>a+fn(x),0)/r.length/5*100:0;
+  const recentReviews=r.slice(-3).reverse().map(rv=>`
     <div class="review-bubble">
-      <div class="r-cats">
-        <span>📍 ${rv.loc}/5</span><span>🧼 ${rv.cln}/5</span><span>🔒 ${rv.prv}/5</span>
-        ${rv.gender ? `<span>· ${rv.gender}</span>` : ''}
-      </div>
-      ${rv.text ? `<div>${rv.text}</div>` : ''}
+      <div class="r-cats"><span>Location: ${rv.loc}/5</span><span>Clean: ${rv.cln}/5</span><span>Privacy: ${rv.prv}/5</span>${rv.gender?`<span>· ${rv.gender}</span>`:''}</div>
+      ${rv.text?`<div>${rv.text}</div>`:''}
     </div>`).join('');
   return `<div class="popup-inner">
-    <div class="popup-rank">Rank #${rank + 1}</div>
+    <div class="popup-rank">Rank #${rank+1}</div>
     <div class="popup-name">${b.name}</div>
     <div class="popup-score">${outOf10}<span> / 10</span></div>
     <div class="popup-review-count">${r.length} review${r.length!==1?'s':''}</div>
@@ -507,191 +236,162 @@ function buildPopupHTML(key, rank) {
   </div>`;
 }
 
-function getSortedBathrooms() {
-  return Object.entries(bathroomMap)
-    .map(([key, b]) => ({ key, score: avgScore(b) }))
-    .sort((a, b) => b.score - a.score);
-}
+function getSorted(){return Object.entries(bathroomMap).map(([key,b])=>({key,score:avgScore(b)})).sort((a,b)=>b.score-a.score);}
 
-function setMarkerDraggable(marker, key, draggable) {
-  if (draggable) {
+function setDraggable(marker,key,draggable){
+  if(draggable){
     marker.dragging.enable();
-    marker.on('dragend', () => {
-      const { lat, lng } = marker.getLatLng();
-      bathroomMap[key].lat = lat;
-      bathroomMap[key].lng = lng;
-      savePin(key, lat, lng);
-      showToast('📍 Pin saved!');
+    marker.on('dragend',()=>{
+      const {lat,lng}=marker.getLatLng();
+      bathroomMap[key].lat=lat;bathroomMap[key].lng=lng;
+      savePin(key,lat,lng);
+      showCoordsToast(bathroomMap[key].name,lat,lng);
     });
   } else {
-    marker.dragging.disable();
-    marker.off('dragend');
+    marker.dragging.disable();marker.off('dragend');
   }
 }
 
-function rebuildMarkers() {
-  const sorted = getSortedBathrooms();
-  sorted.forEach(({ key }, rank) => {
-    const b = bathroomMap[key];
-    if (!b.lat || !b.lng) return;
-    const score = avgScore(b);
-    if (markers[key]) {
-      markers[key].setIcon(makeIcon(rank, score));
-      setMarkerDraggable(markers[key], key, editMode);
-      if (markers[key].isPopupOpen()) markers[key].getPopup().setContent(buildPopupHTML(key, rank));
+function rebuildMarkers(){
+  const sorted=getSorted();
+  sorted.forEach(({key},rank)=>{
+    const b=bathroomMap[key];
+    if(!b.lat||!b.lng) return;
+    const score=avgScore(b);
+    if(markers[key]){
+      markers[key].setIcon(makeIcon(rank,score));
+      setDraggable(markers[key],key,editMode);
+      if(markers[key].isPopupOpen()) markers[key].getPopup().setContent(buildPopupHTML(key,rank));
     } else {
-      const marker = L.marker([b.lat, b.lng], { icon: makeIcon(rank, score), draggable: editMode })
-        .addTo(map).bindPopup('', { maxWidth: 280 });
-      marker.on('popupopen', () => {
-        if (editMode) { marker.closePopup(); return; } // don't open popup in edit mode
-        const s = getSortedBathrooms();
-        const r = s.findIndex(x => x.key === key);
-        marker.getPopup().setContent(buildPopupHTML(key, r));
-        document.querySelectorAll('.bathroom-item').forEach(el => el.classList.remove('active'));
-        const el = document.getElementById(`item-${CSS.escape(key)}`);
-        if (el) { el.classList.add('active'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+      const marker=L.marker([b.lat,b.lng],{icon:makeIcon(rank,score),draggable:editMode}).addTo(map).bindPopup('',{maxWidth:280});
+      marker.on('popupopen',()=>{
+        if(editMode){marker.closePopup();return;}
+        const s=getSorted(),r=s.findIndex(x=>x.key===key);
+        marker.getPopup().setContent(buildPopupHTML(key,r));
+        document.querySelectorAll('.bathroom-item').forEach(el=>el.classList.remove('active'));
+        const el=document.getElementById('item-'+key.replace(/[^a-z0-9]/g,'-'));
+        if(el){el.classList.add('active');el.scrollIntoView({behavior:'smooth',block:'nearest'});}
       });
-      marker.on('dragend', () => {
-        const { lat, lng } = marker.getLatLng();
-        bathroomMap[key].lat = lat;
-        bathroomMap[key].lng = lng;
-        savePin(key, lat, lng);
-        showToast('📍 Pin saved!');
+      marker.on('dragend',()=>{
+        const {lat,lng}=marker.getLatLng();
+        bathroomMap[key].lat=lat;bathroomMap[key].lng=lng;
+        savePin(key,lat,lng);
+        showCoordsToast(bathroomMap[key].name,lat,lng);
       });
-      markers[key] = marker;
+      markers[key]=marker;
     }
   });
 }
 
-function renderSidebar() {
-  const sorted = getSortedBathrooms();
-  const list = document.getElementById('ranking-list');
-  if (!sorted.length) {
-    list.innerHTML = `<div class="empty-state">
-      <div class="emoji">🚽</div>
-      <div class="title">No reviews yet!</div>
-      <div class="desc">Be the first to review a UVA bathroom.</div>
-      <a href="${FORM_URL}" target="_blank">+ Submit the First Review</a>
-    </div>`; return;
+function renderSidebar(){
+  const sorted=getSorted(),list=document.getElementById('ranking-list');
+  if(!sorted.length){
+    list.innerHTML=`<div class="empty-state"><div class="emoji">🚽</div><div class="title">No reviews yet!</div><div class="desc">Be the first to review a UVA bathroom.</div><a href="${FORM_URL}" target="_blank">+ Submit the First Review</a></div>`;
+    return;
   }
-  list.innerHTML = '';
-  sorted.forEach(({ key, score }, i) => {
-    const b = bathroomMap[key];
-    const displayScore = (score * 2).toFixed(1);
-    const hasPin = !!(b.lat && b.lng);
-    const item = document.createElement('div');
-    item.className = 'bathroom-item';
-    item.id = `item-${key}`;
-    item.innerHTML = `
+  list.innerHTML='';
+  sorted.forEach(({key,score},i)=>{
+    const b=bathroomMap[key],displayScore=(score*2).toFixed(1),hasPin=!!(b.lat&&b.lng);
+    const item=document.createElement('div');
+    item.className='bathroom-item';
+    item.id='item-'+key.replace(/[^a-z0-9]/g,'-');
+    item.innerHTML=`
       <div class="rank-badge">${medalFor(i)}</div>
       <div class="bathroom-info">
         <div class="location-name">${b.name}</div>
-        <div class="location-detail">${b.reviews.length} review${b.reviews.length!==1?'s':''}${!hasPin?' · <span style="color:var(--rust)">no pin — click to place</span>':''}</div>
+        <div class="location-detail">${b.reviews.length} review${b.reviews.length!==1?'s':''}${!hasPin?' &middot; <span style="color:var(--rust)">tap to place pin</span>':''}</div>
       </div>
       <div class="score-col">
         <div class="score-label">${displayScore}</div>
         <div class="score-bar"><div class="score-bar-fill" style="width:${Math.min(score/5*100,100)}%"></div></div>
       </div>`;
-    item.addEventListener('click', () => {
-      document.querySelectorAll('.bathroom-item').forEach(el => el.classList.remove('active'));
+    item.addEventListener('click',()=>{
+      document.querySelectorAll('.bathroom-item').forEach(el=>el.classList.remove('active'));
       item.classList.add('active');
-      if (!hasPin) {
-        // Enter pin-it mode for this bathroom
-        startPinIt(key);
-      } else {
-        map.setView([b.lat, b.lng], 17, { animate: true });
-        if (!editMode) markers[key] && markers[key].openPopup();
-      }
+      if(!hasPin){startPinIt(key);}
+      else{map.setView([b.lat,b.lng],17,{animate:true});if(!editMode) markers[key]&&markers[key].openPopup();}
     });
     list.appendChild(item);
   });
 }
 
-function toggleEditMode() {
-  editMode = !editMode;
-  const btn = document.getElementById('edit-toggle');
-  const banner = document.getElementById('edit-banner');
-  btn.classList.toggle('active', editMode);
-  btn.textContent = editMode ? '✅ Done Editing' : '✏️ Edit Pins';
-  banner.classList.toggle('show', editMode);
-  // Enable/disable dragging on all existing markers
-  Object.entries(markers).forEach(([key, marker]) => {
-    setMarkerDraggable(marker, key, editMode);
-  });
-  if (!editMode) showToast('Pin positions saved!');
+function toggleEditMode(){
+  editMode=!editMode;
+  const btn=document.getElementById('edit-toggle'),banner=document.getElementById('edit-banner');
+  btn.classList.toggle('active',editMode);
+  btn.textContent=editMode?'✅ Done Editing':'✏️ Edit Pins';
+  banner.classList.toggle('show',editMode);
+  Object.entries(markers).forEach(([key,marker])=>setDraggable(marker,key,editMode));
+  if(!editMode) showToast('Edit mode off. Pin positions saved locally.');
 }
 
-function startPinIt(key) {
-  pinitKey = key;
-  const b = bathroomMap[key];
-  document.getElementById('pinit-label').textContent = `Click map to place pin for "${b.name}"`;
+function startPinIt(key){
+  pinitKey=key;
+  document.getElementById('pinit-label').textContent='Click map to place pin for "'+bathroomMap[key].name+'"';
   document.getElementById('pinit-notice').classList.add('show');
 }
+function cancelPinIt(){pinitKey=null;document.getElementById('pinit-notice').classList.remove('show');}
 
-function cancelPinIt() {
-  pinitKey = null;
-  document.getElementById('pinit-notice').classList.remove('show');
-}
-
-async function loadData(isRefresh = false) {
-  if (!isRefresh) {
-    document.getElementById('ranking-list').innerHTML = '<div class="loading-state">Loading...</div>';
-  }
-  bathroomMap = {};
-  const savedPins = loadSavedPins();
-
-  try {
-    const res = await fetch(SHEET_CSV + '&t=' + Date.now());
-    const text = await res.text();
-    const rows = parseCSV(text);
-
-    rows.forEach(row => {
-      const name   = findCol(row, ['name of bathroom', 'bathroom']).trim();
-      const loc    = parseFloat(findCol(row, ['location'])) || 0;
-      const cln    = parseFloat(findCol(row, ['cleanliness'])) || 0;
-      const prv    = parseFloat(findCol(row, ['privacy'])) || 0;
-      const txt    = findCol(row, ['review']).trim();
-      const gender = findCol(row, ['gender']).trim();
-      if (!name) return;
-      const key = name.toLowerCase().trim();
-      if (!bathroomMap[key]) {
-        // Check for saved custom pin first, then fall back to known locations
-        const saved = savedPins[key];
-        const guessed = guessLocation(name);
-        bathroomMap[key] = {
-          name,
-          lat: saved?.lat ?? guessed?.lat ?? null,
-          lng: saved?.lng ?? guessed?.lng ?? null,
-          reviews: []
-        };
-      }
-      if (loc || cln || prv) {
-        bathroomMap[key].reviews.push({ loc, cln, prv, text: txt, gender });
-      }
+async function loadPinsFromSheet(){
+  const sheetPins={};
+  try{
+    const res=await fetch(PINS_CSV+'&t='+Date.now());
+    const text=await res.text();
+    const rows=parseCSV(text);
+    rows.forEach(row=>{
+      const name=(row['name']||'').trim().toLowerCase();
+      const lat=parseFloat(row['lat']),lng=parseFloat(row['lng']);
+      if(name&&!isNaN(lat)&&!isNaN(lng)) sheetPins[name]={lat,lng};
     });
+  } catch(e){console.warn('Could not load pins sheet:',e);}
+  return sheetPins;
+}
 
-    rebuildMarkers();
-    renderSidebar();
-    if (isRefresh) showToast('✓ Reviews updated!');
-  } catch(e) {
-    console.error('Load error:', e);
-    document.getElementById('ranking-list').innerHTML = `<div class="empty-state">
-      <div class="emoji">⚠️</div>
-      <div class="title">Couldn't load reviews</div>
-      <div class="desc">Try refreshing in a moment.</div>
-    </div>`;
+async function loadData(isRefresh=false){
+  if(!isRefresh) document.getElementById('ranking-list').innerHTML='<div class="loading-state">Loading...</div>';
+  bathroomMap={};
+  const savedPins=loadSavedPins();
+  try{
+    const [reviewRes,sheetPins]=await Promise.all([fetch(SHEET_CSV+'&t='+Date.now()),loadPinsFromSheet()]);
+    const text=await reviewRes.text(),rows=parseCSV(text);
+    rows.forEach(row=>{
+      const name=findCol(row,['name of bathroom','bathroom']).trim();
+      const loc=parseFloat(findCol(row,['location']))||0;
+      const cln=parseFloat(findCol(row,['cleanliness']))||0;
+      const prv=parseFloat(findCol(row,['privacy']))||0;
+      const txt=findCol(row,['review']).trim();
+      const gender=findCol(row,['gender']).trim();
+      if(!name) return;
+      const key=name.toLowerCase().trim();
+      if(!bathroomMap[key]){
+        const sheetPin=sheetPins[key],localPin=savedPins[key],guessed=guessLocation(name);
+        bathroomMap[key]={name,lat:sheetPin?.lat??localPin?.lat??guessed?.lat??null,lng:sheetPin?.lng??localPin?.lng??guessed?.lng??null,reviews:[]};
+      }
+      if(loc||cln||prv) bathroomMap[key].reviews.push({loc,cln,prv,text:txt,gender});
+    });
+    rebuildMarkers();renderSidebar();
+    if(isRefresh) showToast('Reviews updated!');
+  } catch(e){
+    console.error('Load error:',e);
+    document.getElementById('ranking-list').innerHTML='<div class="empty-state"><div class="emoji">⚠️</div><div class="title">Could not load reviews</div><div class="desc">Try refreshing in a moment.</div></div>';
   }
 }
 
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
+function showCoordsToast(name,lat,lng){
+  const t=document.getElementById('toast');
+  t.innerHTML='📍 Pin moved! To share with everyone, add a row to your <strong>Pins Sheet</strong>:<br>name: <strong>'+name+'</strong><br>lat: <strong>'+lat.toFixed(6)+'</strong> &nbsp; lng: <strong>'+lng.toFixed(6)+'</strong>';
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+  setTimeout(()=>t.classList.remove('show'),8000);
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.innerHTML=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
 }
 
 loadData();
-setInterval(() => loadData(false), 120000);
+setInterval(()=>loadData(false),120000);
 </script>
 </body>
 </html>
