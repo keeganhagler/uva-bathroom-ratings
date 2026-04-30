@@ -111,6 +111,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 0.5rem;
   }
 
   .review-btn-header {
@@ -127,8 +128,29 @@
     text-decoration: none;
     transition: background 0.15s;
     display: inline-block;
+    white-space: nowrap;
   }
   .review-btn-header:hover { background: var(--rust); color: var(--cream); }
+
+  .edit-toggle {
+    background: none;
+    border: 1px solid var(--paper);
+    border-radius: 3px;
+    padding: 0.35rem 0.65rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: rgba(26,18,8,0.5);
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .edit-toggle.active {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--ink);
+  }
 
   #ranking-list { flex: 1; overflow-y: auto; }
 
@@ -170,6 +192,25 @@
 
   #map { height: calc(100vh - 160px); width: 100%; }
 
+  /* Edit mode banner on map */
+  .edit-banner {
+    display: none;
+    position: absolute;
+    top: 10px; left: 50%; transform: translateX(-50%);
+    background: var(--gold);
+    color: var(--ink);
+    padding: 0.5rem 1.25rem;
+    border-radius: 40px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    z-index: 900;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+  .edit-banner.show { display: block; }
+
   .leaflet-popup-content-wrapper {
     background: var(--ink); color: var(--cream);
     border-radius: 4px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); border: none;
@@ -204,7 +245,28 @@
   }
   .popup-review-btn:hover { background: var(--gold-light); }
 
-  .no-pin-note { font-size: 0.72rem; color: rgba(250,247,240,0.4); font-style: italic; margin-top: 0.3rem; }
+  /* Pin-it mode: clicking map places a pin for unlocated bathrooms */
+  .pinit-notice {
+    display: none;
+    position: absolute;
+    bottom: 10px; left: 50%; transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--cream);
+    padding: 0.5rem 1.25rem;
+    border-radius: 40px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    z-index: 900;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .pinit-notice.show { display: block; }
+  .pinit-notice button {
+    background: none; border: none; color: var(--gold);
+    cursor: pointer; font-family: inherit; font-size: inherit;
+    margin-left: 0.75rem; text-decoration: underline;
+  }
 
   .empty-state {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -244,6 +306,9 @@
   }
   .toast.show { transform: translateX(-50%) translateY(0); }
 
+  /* Draggable cursor in edit mode */
+  .leaflet-dragging .leaflet-marker-icon { cursor: grabbing !important; }
+
   @media (max-width: 768px) {
     .layout { grid-template-columns: 1fr; }
     .sidebar { max-height: 45vh; position: relative; }
@@ -263,21 +328,29 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <span>Ranked by Score</span>
-      <a class="review-btn-header" href="https://docs.google.com/forms/d/e/1FAIpQLSdy6gOE95KSWW8z_0Z2LCPOQQhD1wfE8lR-uhJt98EopLJZqQ/viewform" target="_blank">+ Review a Bathroom</a>
+      <button class="edit-toggle" id="edit-toggle" onclick="toggleEditMode()">✏️ Edit Pins</button>
+      <a class="review-btn-header" href="https://docs.google.com/forms/d/e/1FAIpQLSdy6gOE95KSWW8z_0Z2LCPOQQhD1wfE8lR-uhJt98EopLJZqQ/viewform" target="_blank">+ Review</a>
     </div>
     <div id="ranking-list"><div class="loading-state">Loading...</div></div>
   </aside>
-  <div id="map"></div>
+  <div style="position:relative; flex:1;">
+    <div id="map"></div>
+    <div class="edit-banner" id="edit-banner">✏️ Edit mode — drag any pin to reposition it</div>
+    <div class="pinit-notice" id="pinit-notice">
+      <span id="pinit-label">Click map to place pin</span>
+      <button onclick="cancelPinIt()">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <button class="refresh-btn" onclick="loadData(true)">↻ Refresh</button>
 <div class="toast" id="toast"></div>
 
 <script>
-const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS9EMsacpm5N4113uRmBpQCFWJ-eKLVTmXKlPQLDZGEvWtqKHyLniVjN_meKbMieCGG7pDRJZvH7AsM/pub?output=csv';
+const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS9EMsacpm5N4113uRmBpQCFWJ-eKLVTmXKlPQLDZGEvWtqKHyLniVjN_meKbMieCGW7pDRJZvH7AsM/pub?output=csv';
 const FORM_URL  = 'https://docs.google.com/forms/d/e/1FAIpQLSdy6gOE95KSWW8z_0Z2LCPOQQhD1wfE8lR-uhJt98EopLJZqQ/viewform';
+const PIN_STORAGE_KEY = 'uva_bathroom_pins_v1';
 
-// Known UVA building locations — keywords are matched loosely against whatever the user typed
 const KNOWN_LOCATIONS = [
   { keywords: ['shannon'],                              lat: 38.0364566, lng: -78.5053683 },
   { keywords: ['garrett'],                              lat: 38.0342112, lng: -78.5055858 },
@@ -295,7 +368,7 @@ const KNOWN_LOCATIONS = [
   { keywords: ['rotunda'],                              lat: 38.0355,    lng: -78.5034    },
   { keywords: ['monroe'],                               lat: 38.0330,    lng: -78.5042    },
   { keywords: ['clark'],                                lat: 38.0322,    lng: -78.5098    },
-  { keywords: ['nau'],                                  lat: 38.0338,    lng: -78.5044    },
+  { keywords: ['nau'],                                  lat: 38.0336,    lng: -78.5040    },
   { keywords: ['robertson'],                            lat: 38.0335,    lng: -78.5039    },
   { keywords: ['kerchof'],                              lat: 38.0321,    lng: -78.5109    },
   { keywords: ['physics'],                              lat: 38.0316,    lng: -78.5120    },
@@ -319,34 +392,37 @@ function guessLocation(name) {
   return null;
 }
 
-// Robust CSV parser — handles both comma and tab separators, quoted fields
+// Load/save custom pin positions from localStorage
+function loadSavedPins() {
+  try { return JSON.parse(localStorage.getItem(PIN_STORAGE_KEY) || '{}'); } catch { return {}; }
+}
+function savePin(key, lat, lng) {
+  const pins = loadSavedPins();
+  pins[key] = { lat, lng };
+  localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(pins));
+}
+
 function parseCSV(text) {
   const lines = text.split('\n').filter(l => l.trim());
   if (lines.length < 2) return [];
-
   function splitLine(line) {
-    const vals = [];
-    let cur = '', inQ = false;
+    const vals = []; let cur = '', inQ = false;
     for (let i = 0; i < line.length; i++) {
       const c = line[i];
       if (c === '"') { inQ = !inQ; continue; }
       if (!inQ && (c === ',' || c === '\t')) { vals.push(cur.trim()); cur = ''; continue; }
       cur += c;
     }
-    vals.push(cur.trim());
-    return vals;
+    vals.push(cur.trim()); return vals;
   }
-
   const headers = splitLine(lines[0]);
   return lines.slice(1).map(line => {
-    const vals = splitLine(line);
-    const obj = {};
+    const vals = splitLine(line), obj = {};
     headers.forEach((h, i) => obj[h.trim()] = (vals[i] || '').trim());
     return obj;
   }).filter(row => Object.values(row).some(v => v));
 }
 
-// Find the right column regardless of exact header text
 function findCol(row, keywords) {
   const key = Object.keys(row).find(k => keywords.some(kw => k.toLowerCase().includes(kw)));
   return key ? row[key] : '';
@@ -354,21 +430,34 @@ function findCol(row, keywords) {
 
 let bathroomMap = {};
 let markers = {};
+let editMode = false;
+let pinitKey = null; // key of bathroom waiting to be pinned by click
 
 const map = L.map('map').setView([38.0335, -78.507], 15);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
 }).addTo(map);
 
+// Handle map click for pin-it mode
+map.on('click', (e) => {
+  if (!pinitKey) return;
+  const key = pinitKey;
+  const { lat, lng } = e.latlng;
+  bathroomMap[key].lat = lat;
+  bathroomMap[key].lng = lng;
+  savePin(key, lat, lng);
+  cancelPinIt();
+  rebuildMarkers();
+  renderSidebar();
+  showToast('📍 Pin placed!');
+});
+
 function medalFor(i) {
   return i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
 }
-
 function colorForScore(s) {
-  // s is out of 5
   return s >= 4 ? '#c8963e' : s >= 3 ? '#4a6741' : '#a63d2f';
 }
-
 function avgScore(b) {
   const r = b.reviews;
   if (!r.length) return 0;
@@ -395,7 +484,6 @@ function buildPopupHTML(key, rank) {
   const outOf10 = (score * 2).toFixed(1);
   const avg = fn => r.length ? (r.reduce((a,x)=>a+fn(x),0)/r.length).toFixed(1) : '—';
   const pct = fn => r.length ? r.reduce((a,x)=>a+fn(x),0)/r.length/5*100 : 0;
-
   const recentReviews = r.slice(-3).reverse().map(rv => `
     <div class="review-bubble">
       <div class="r-cats">
@@ -404,7 +492,6 @@ function buildPopupHTML(key, rank) {
       </div>
       ${rv.text ? `<div>${rv.text}</div>` : ''}
     </div>`).join('');
-
   return `<div class="popup-inner">
     <div class="popup-rank">Rank #${rank + 1}</div>
     <div class="popup-name">${b.name}</div>
@@ -426,6 +513,22 @@ function getSortedBathrooms() {
     .sort((a, b) => b.score - a.score);
 }
 
+function setMarkerDraggable(marker, key, draggable) {
+  if (draggable) {
+    marker.dragging.enable();
+    marker.on('dragend', () => {
+      const { lat, lng } = marker.getLatLng();
+      bathroomMap[key].lat = lat;
+      bathroomMap[key].lng = lng;
+      savePin(key, lat, lng);
+      showToast('📍 Pin saved!');
+    });
+  } else {
+    marker.dragging.disable();
+    marker.off('dragend');
+  }
+}
+
 function rebuildMarkers() {
   const sorted = getSortedBathrooms();
   sorted.forEach(({ key }, rank) => {
@@ -434,17 +537,26 @@ function rebuildMarkers() {
     const score = avgScore(b);
     if (markers[key]) {
       markers[key].setIcon(makeIcon(rank, score));
+      setMarkerDraggable(markers[key], key, editMode);
       if (markers[key].isPopupOpen()) markers[key].getPopup().setContent(buildPopupHTML(key, rank));
     } else {
-      const marker = L.marker([b.lat, b.lng], { icon: makeIcon(rank, score) })
+      const marker = L.marker([b.lat, b.lng], { icon: makeIcon(rank, score), draggable: editMode })
         .addTo(map).bindPopup('', { maxWidth: 280 });
       marker.on('popupopen', () => {
+        if (editMode) { marker.closePopup(); return; } // don't open popup in edit mode
         const s = getSortedBathrooms();
         const r = s.findIndex(x => x.key === key);
         marker.getPopup().setContent(buildPopupHTML(key, r));
         document.querySelectorAll('.bathroom-item').forEach(el => el.classList.remove('active'));
         const el = document.getElementById(`item-${CSS.escape(key)}`);
         if (el) { el.classList.add('active'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+      });
+      marker.on('dragend', () => {
+        const { lat, lng } = marker.getLatLng();
+        bathroomMap[key].lat = lat;
+        bathroomMap[key].lng = lng;
+        savePin(key, lat, lng);
+        showToast('📍 Pin saved!');
       });
       markers[key] = marker;
     }
@@ -454,21 +566,19 @@ function rebuildMarkers() {
 function renderSidebar() {
   const sorted = getSortedBathrooms();
   const list = document.getElementById('ranking-list');
-
   if (!sorted.length) {
     list.innerHTML = `<div class="empty-state">
       <div class="emoji">🚽</div>
       <div class="title">No reviews yet!</div>
       <div class="desc">Be the first to review a UVA bathroom.</div>
       <a href="${FORM_URL}" target="_blank">+ Submit the First Review</a>
-    </div>`;
-    return;
+    </div>`; return;
   }
-
   list.innerHTML = '';
   sorted.forEach(({ key, score }, i) => {
     const b = bathroomMap[key];
     const displayScore = (score * 2).toFixed(1);
+    const hasPin = !!(b.lat && b.lng);
     const item = document.createElement('div');
     item.className = 'bathroom-item';
     item.id = `item-${key}`;
@@ -476,7 +586,7 @@ function renderSidebar() {
       <div class="rank-badge">${medalFor(i)}</div>
       <div class="bathroom-info">
         <div class="location-name">${b.name}</div>
-        <div class="location-detail">${b.reviews.length} review${b.reviews.length!==1?'s':''}${!b.lat?' · no map pin':''}</div>
+        <div class="location-detail">${b.reviews.length} review${b.reviews.length!==1?'s':''}${!hasPin?' · <span style="color:var(--rust)">no pin — click to place</span>':''}</div>
       </div>
       <div class="score-col">
         <div class="score-label">${displayScore}</div>
@@ -485,21 +595,50 @@ function renderSidebar() {
     item.addEventListener('click', () => {
       document.querySelectorAll('.bathroom-item').forEach(el => el.classList.remove('active'));
       item.classList.add('active');
-      if (b.lat && b.lng) {
+      if (!hasPin) {
+        // Enter pin-it mode for this bathroom
+        startPinIt(key);
+      } else {
         map.setView([b.lat, b.lng], 17, { animate: true });
-        markers[key] && markers[key].openPopup();
+        if (!editMode) markers[key] && markers[key].openPopup();
       }
     });
     list.appendChild(item);
   });
 }
 
+function toggleEditMode() {
+  editMode = !editMode;
+  const btn = document.getElementById('edit-toggle');
+  const banner = document.getElementById('edit-banner');
+  btn.classList.toggle('active', editMode);
+  btn.textContent = editMode ? '✅ Done Editing' : '✏️ Edit Pins';
+  banner.classList.toggle('show', editMode);
+  // Enable/disable dragging on all existing markers
+  Object.entries(markers).forEach(([key, marker]) => {
+    setMarkerDraggable(marker, key, editMode);
+  });
+  if (!editMode) showToast('Pin positions saved!');
+}
+
+function startPinIt(key) {
+  pinitKey = key;
+  const b = bathroomMap[key];
+  document.getElementById('pinit-label').textContent = `Click map to place pin for "${b.name}"`;
+  document.getElementById('pinit-notice').classList.add('show');
+}
+
+function cancelPinIt() {
+  pinitKey = null;
+  document.getElementById('pinit-notice').classList.remove('show');
+}
+
 async function loadData(isRefresh = false) {
   if (!isRefresh) {
     document.getElementById('ranking-list').innerHTML = '<div class="loading-state">Loading...</div>';
   }
-
   bathroomMap = {};
+  const savedPins = loadSavedPins();
 
   try {
     const res = await fetch(SHEET_CSV + '&t=' + Date.now());
@@ -507,29 +646,25 @@ async function loadData(isRefresh = false) {
     const rows = parseCSV(text);
 
     rows.forEach(row => {
-      // Use flexible column matching so minor header changes don't break parsing
       const name   = findCol(row, ['name of bathroom', 'bathroom']).trim();
       const loc    = parseFloat(findCol(row, ['location'])) || 0;
       const cln    = parseFloat(findCol(row, ['cleanliness'])) || 0;
       const prv    = parseFloat(findCol(row, ['privacy'])) || 0;
       const txt    = findCol(row, ['review']).trim();
       const gender = findCol(row, ['gender']).trim();
-
       if (!name) return;
-
-      // Use lowercase name as key so "Nau Hall" and "nau hall" merge
       const key = name.toLowerCase().trim();
-
       if (!bathroomMap[key]) {
-        const coords = guessLocation(name);
+        // Check for saved custom pin first, then fall back to known locations
+        const saved = savedPins[key];
+        const guessed = guessLocation(name);
         bathroomMap[key] = {
           name,
-          lat: coords?.lat || null,
-          lng: coords?.lng || null,
+          lat: saved?.lat ?? guessed?.lat ?? null,
+          lng: saved?.lng ?? guessed?.lng ?? null,
           reviews: []
         };
       }
-
       if (loc || cln || prv) {
         bathroomMap[key].reviews.push({ loc, cln, prv, text: txt, gender });
       }
